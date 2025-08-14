@@ -15,7 +15,7 @@ if (!(globalThis as any).process) (globalThis as any).process = process as any
 // Register Service Worker and request Notifications
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(async (reg) => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).then(async (reg) => {
       // Передадим конфиг в SW (для pushsubscriptionchange)
       const sendCfg = () => {
         try {

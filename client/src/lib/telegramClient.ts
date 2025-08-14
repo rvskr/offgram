@@ -468,7 +468,6 @@ export async function getMessageById(entity: any, msgId: number): Promise<{
   mediaSize?: number
   fileName?: string
 } | null> {
-  const c = getClient()
   await ensureConnected()
   try {
     const msgs = await getMessagesCached(entity, { ids: [msgId] })

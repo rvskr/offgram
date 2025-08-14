@@ -76,7 +76,6 @@ export function allowAutoDownloadByEntity(s: AppSettings, entity: any | undefine
   const cls: string | undefined = entity.className || entity._
   const isChannel = !!(cls && cls.includes('Channel'))
   const isChat = !!(cls && (cls.includes('Chat') || cls.includes('Supergroup')))
-  const isUser = !isChannel && !isChat
   const isBot = !!(entity.bot === true)
   if (isBot) return !!s.autoDownload.bots
   if (isChannel) return !!s.autoDownload.channels

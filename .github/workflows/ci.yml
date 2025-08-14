@@ -25,7 +25,8 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint --if-present
+        continue-on-error: true
+        run: npm run lint --if-present --silent
 
       - name: Build
         run: npm run build

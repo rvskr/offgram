@@ -4,6 +4,8 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Base path for GitHub Pages under https://<user>.github.io/offgram/
+  base: '/offgram/',
   plugins: [react(), nodePolyfills()],
   resolve: {
     alias: {

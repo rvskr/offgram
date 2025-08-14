@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "dev": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview",
+    "lint": "npm --prefix client run lint"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.1.0"
+  },
+  "dependencies": {
+    "vite-plugin-pwa": "^1.0.2"
+  }
+}

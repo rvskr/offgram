@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Базовые правки для приложения */
+html, body, #root {
+  height: 100%;
+}
+/* Задаём базовые цвета без @apply, чтобы избежать ошибок плагина */
+body {
+  background-color: #e7ebf0; /* как в Telegram, светло-серый фон */
+  color: #111827; /* близко к gray-900 */
+}
+
+/* Telegram-like spoiler styling */
+.tg-spoiler {
+  position: relative;
+  color: transparent;
+  text-shadow: 0 0 8px rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.08);
+  border-radius: 4px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.tg-spoiler:hover,
+.tg-spoiler:focus {
+  color: inherit;
+  text-shadow: none;
+  background: rgba(0,0,0,0.06);
+}

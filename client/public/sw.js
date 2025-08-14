@@ -112,7 +112,18 @@ self.addEventListener('message', (event) => {
 self.addEventListener('notificationclick', (event) => {
   console.log('[sw] notificationclick', event && event.notification && event.notification.data)
   event.notification.close()
-  const url = event.notification?.data && event.notification.data.url
+  let url = event.notification?.data && event.notification.data.url
+  // Fallback: build URL from dialogId if no explicit url provided
+  try {
+    if (!url) {
+      const did = event?.notification?.data && event.notification.data.dialogId
+      if (did) {
+        // self.registration.scope ends with base path (e.g. https://host/offgram/)
+        const base = (self.registration && self.registration.scope) ? self.registration.scope : '/'
+        url = `${base}#/dialog/${did}`
+      }
+    }
+  } catch {}
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
     const client = all.find(c => 'focus' in c)

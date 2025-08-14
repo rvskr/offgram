@@ -681,6 +681,36 @@ export async function addCurrentAccount(): Promise<StoredAccount | null> {
   return acc
 }
 
+// Add an account by providing its session string (does not switch active account)
+export async function addAccountFromSession(sess: string): Promise<StoredAccount> {
+  const list = readAccounts()
+  const existing = list.find(a => a.session === sess)
+  if (existing) return existing
+  // Try to enrich with user info using a temporary client
+  let label: string | undefined; let userId: string | undefined; let phone: string | undefined
+  try {
+    const temp = new TelegramClient(new StringSession(sess), apiId, apiHash, { connectionRetries: 2 })
+    try { await temp.connect() } catch {}
+    try {
+      const me: any = await temp.getMe()
+      label = [me?.firstName, me?.lastName].filter(Boolean).join(' ') || me?.username || 'Аккаунт'
+      try { userId = me?.id ? String(me.id) : undefined } catch {}
+      try { phone = me?.phone ? String(me.phone) : undefined } catch {}
+    } catch {}
+    try { await (temp as any).disconnect?.() } catch {}
+  } catch {}
+  const acc: StoredAccount = {
+    id: String(Date.now()) + ':' + Math.random().toString(36).slice(2, 8),
+    label,
+    userId,
+    phone,
+    session: sess,
+  }
+  const next = [...list, acc]
+  writeAccounts(next)
+  return acc
+}
+
 export function removeAccount(id: string) {
   const list = readAccounts()
   const next = list.filter(a => a.id !== id)
@@ -696,6 +726,31 @@ export function switchAccount(id: string): boolean {
   try { client = null } catch {}
   try { connecting = null } catch {}
   return true
+}
+
+// Start auth for a new account using a temporary client. Returns the session string on success.
+export async function startAuthNew(
+  phoneNumber: string,
+  onCode?: () => Promise<string>,
+  onPassword?: () => Promise<string>,
+): Promise<string> {
+  const temp = new TelegramClient(new StringSession(''), apiId, apiHash, { connectionRetries: 5 })
+  await temp.connect()
+  await temp.start({
+    phoneNumber: async () => phoneNumber,
+    phoneCode: async () => {
+      if (!onCode) throw new Error('No code provider')
+      return onCode()
+    },
+    password: async () => {
+      if (!onPassword) throw new Error('No password provider')
+      return onPassword()
+    },
+    onError: (err) => { try { console.error('Auth error (temp):', err) } catch {} },
+  })
+  const sess = (temp.session as StringSession).save()
+  try { await (temp as any).disconnect?.() } catch {}
+  return sess
 }
 
 // Create a singleton Telegram client

@@ -121,7 +121,37 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     const data: any = ev.data
     if (data && data.type === 'navigate' && typeof data.url === 'string') {
       try { window.focus() } catch {}
-      try { window.location.href = data.url } catch {}
+      try {
+        // Prefer SPA navigation to avoid full reloads
+        const u = new URL(data.url, window.location.origin)
+        const hash = u.hash || '' // like '#/dialog/123'
+        const m = hash.match(/#\/?dialog\/(.+)$/)
+        if (m && m[1]) {
+          const id = decodeURIComponent(m[1])
+          const base = (import.meta as any).env?.BASE_URL || '/'
+          const listUrl = `${base}#/`
+          const chatUrl = `${base}#/dialog/${encodeURIComponent(id)}`
+          // Ensure a list entry before chat, so Back returns to dialogs list
+          try { history.pushState({ view: 'chat' }, '', listUrl) } catch {}
+          try { history.pushState({ view: 'chat', id }, '', chatUrl) } catch {}
+          // Notify app via popstate to sync state
+          try { window.dispatchEvent(new PopStateEvent('popstate', { state: { view: 'chat', id } as any })) } catch {}
+          return
+        }
+        // Fallback: change only hash within same page (still no reload)
+        try {
+          const next = data.url.startsWith(window.location.origin)
+            ? data.url.substring(window.location.origin.length)
+            : data.url
+          history.pushState({}, '', next)
+          window.dispatchEvent(new PopStateEvent('popstate', { state: {} as any }))
+        } catch {
+          // Last resort: full redirect
+          window.location.href = data.url
+        }
+      } catch {
+        try { window.location.href = data.url } catch {}
+      }
     }
   })
 }

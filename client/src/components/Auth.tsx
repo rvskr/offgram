@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ensureConnected, isAuthorized, startAuth, startAuthNew, addAccountFromSession, getAccounts, getActiveAccountId, switchAccount, removeAccount, addCurrentAccount, clearSession, type StoredAccount } from '../lib/telegramClient'
+import { hashUrl } from '../lib/basePath'
 
 export default function Auth({ onDone }: { onDone: () => void }) {
   // Accounts management state
@@ -130,7 +131,7 @@ export default function Auth({ onDone }: { onDone: () => void }) {
         </div>
         <button
           type="button"
-          onClick={() => { try { history.pushState({ view: 'settings' }, '', '/#/settings') } catch {}; try { window.dispatchEvent(new PopStateEvent('popstate', { state: { view: 'settings' } as any })) } catch {} }}
+          onClick={() => { try { history.pushState({ view: 'settings' }, '', hashUrl('settings')) } catch {}; try { window.dispatchEvent(new PopStateEvent('popstate', { state: { view: 'settings' } as any })) } catch {} }}
           className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
         >Настройки</button>
       </div>

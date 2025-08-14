@@ -1,4 +1,5 @@
 import { VAPID_PUBLIC_KEY, PUSH_BASE_URL } from '../config'
+import { getBase } from './base'
 
 function urlBase64ToUint8Array(base64String: string) {
   try {
@@ -128,7 +129,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         const m = hash.match(/#\/?dialog\/(.+)$/)
         if (m && m[1]) {
           const id = decodeURIComponent(m[1])
-          const base = (import.meta as any).env?.BASE_URL || '/'
+          const base = getBase()
           const listUrl = `${base}#/`
           const chatUrl = `${base}#/dialog/${encodeURIComponent(id)}`
           // Ensure a list entry before chat, so Back returns to dialogs list

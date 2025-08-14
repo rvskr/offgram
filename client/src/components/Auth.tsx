@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getBase } from '../lib/base'
 import { ensureConnected, isAuthorized, startAuth, startAuthNew, addAccountFromSession, getAccounts, getActiveAccountId, switchAccount, removeAccount, addCurrentAccount, clearSession, type StoredAccount } from '../lib/telegramClient'
-import { hashUrl } from '../lib/basePath'
 
 export default function Auth({ onDone }: { onDone: () => void }) {
   // Accounts management state
@@ -26,10 +26,12 @@ export default function Auth({ onDone }: { onDone: () => void }) {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
+  const base = getBase()
 
   const provideCode = useCallback(async () => {
     setNeedCode(true)
     setStatus('Введите код из Telegram...')
+    try { setCode('') } catch {}
     return new Promise<string>((resolve) => {
       codeResolver.current = resolve
     })
@@ -38,6 +40,7 @@ export default function Auth({ onDone }: { onDone: () => void }) {
   const providePassword = useCallback(async () => {
     setNeedPassword(true)
     setStatus('Введите пароль (2FA)...')
+    try { setPassword('') } catch {}
     return new Promise<string>((resolve) => {
       passwordResolver.current = resolve
     })
@@ -80,7 +83,7 @@ export default function Auth({ onDone }: { onDone: () => void }) {
   const onSubmitCode = (e: React.FormEvent) => {
     e.preventDefault()
     if (codeResolver.current) {
-      codeResolver.current(code)
+      codeResolver.current(String(code ?? '').trim())
       codeResolver.current = null
       setNeedCode(false)
       setStatus('Проверяем код...')
@@ -90,9 +93,8 @@ export default function Auth({ onDone }: { onDone: () => void }) {
   const onSubmitPassword = (e: React.FormEvent) => {
     e.preventDefault()
     if (passwordResolver.current) {
-      passwordResolver.current(password)
+      passwordResolver.current(String(password ?? '').trim())
       passwordResolver.current = null
-      setNeedPassword(false)
       setStatus('Проверяем пароль...')
     }
   }
@@ -131,7 +133,7 @@ export default function Auth({ onDone }: { onDone: () => void }) {
         </div>
         <button
           type="button"
-          onClick={() => { try { history.pushState({ view: 'settings' }, '', hashUrl('settings')) } catch {}; try { window.dispatchEvent(new PopStateEvent('popstate', { state: { view: 'settings' } as any })) } catch {} }}
+          onClick={() => { try { history.pushState({ view: 'settings' }, '', `${base}#/settings`) } catch {}; try { window.dispatchEvent(new PopStateEvent('popstate', { state: { view: 'settings' } as any })) } catch {} }}
           className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
         >Настройки</button>
       </div>

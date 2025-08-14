@@ -17,7 +17,7 @@ import MediaFolderModal from './components/MediaFolderModal'
 import { pushTargeted } from './lib/push'
 import SettingsPage from './components/SettingsPage'
 import { getSettings, subscribe as subscribeSettings, allowAutoDownloadByEntity } from './lib/settings'
-import { hashUrl } from './lib/basePath'
+import { getBase } from './lib/base'
 
 // Make readable snippet for notification body
 function computeBodySnippet(m: Partial<DBMessage> | undefined): string {
@@ -57,6 +57,8 @@ function App() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [view, setView] = useState<'chat' | 'settings' | 'auth' | null>(null)
   const openedFromAppRef = useRef({ settings: false })
+  // Centralized base
+  const base = getBase()
 
   // Helper: быстрый чек mute из локального состояния/БД с fallback к сети
   const isDialogMuted = useCallback(async (dialogId: string): Promise<boolean> => {
@@ -481,7 +483,7 @@ function App() {
                   const title = p.title || 'Новое сообщение'
                   const snippet = computeBodySnippet(newest)
                   const body = snippet
-                  const url = hashUrl(`dialog/${encodeURIComponent(dlgId)}`)
+                  const url = `${base}#/dialog/${encodeURIComponent(dlgId)}`
                   { const metrics = (() => { try { return localStorage.getItem('tg_metrics') === '1' } catch { return false } })(); if (metrics) console.debug('[notify] poll detected new message → pushTargeted', { dialogId: dlgId, msgId: newest.msgId }) }
                   try { await pushTargeted({ title, body, url, tag: `dialog:${dlgId}`, dialogId: dlgId }) } catch {}
                 } else {
@@ -629,7 +631,7 @@ function App() {
             const newest = ent ? await getMessageById(ent, msgId) : null
             const snippet = computeBodySnippet(newest || u)
             const body = snippet
-            const url = hashUrl(`dialog/${encodeURIComponent(dialogId)}`)
+            const url = `${base}#/dialog/${encodeURIComponent(dialogId)}`
             { const metrics = (() => { try { return localStorage.getItem('tg_metrics') === '1' } catch { return false } })(); if (metrics) console.debug('[notify] rt new message → pushTargeted', { dialogId, msgId }) }
             try { await pushTargeted({ title, body, url, tag: `dialog:${dialogId}`, dialogId }) } catch {}
 
@@ -700,7 +702,7 @@ function App() {
         const hash = location.hash
         if (/^#\/settings/.test(hash)) {
           setView('settings')
-          history.replaceState({ view: 'settings' }, '', hashUrl('settings'))
+          history.replaceState({ view: 'settings' }, '', `${base}#/settings`)
           openedFromAppRef.current.settings = false
         } else {
           const m = hash.match(/#\/dialog\/([^/]+)/)
@@ -708,7 +710,7 @@ function App() {
             const id = decodeURIComponent(m[1])
             setView('chat')
             setActiveId(id)
-            history.replaceState({ view: 'chat', id }, '', hashUrl(`dialog/${encodeURIComponent(id)}`))
+            history.replaceState({ view: 'chat', id }, '', `${base}#/dialog/${encodeURIComponent(id)}`)
           }
         }
       }
@@ -757,16 +759,13 @@ function App() {
               const title = dlg?.title || 'Новое сообщение'
               const snippet = computeBodySnippet(newest)
               const body = snippet
-              const url = hashUrl(`dialog/${encodeURIComponent(activeId)}`)
-              { const metrics = (() => { try { return localStorage.getItem('tg_metrics') === '1' } catch { return false } })(); if (metrics) console.debug('[notify] open dialog via url', { url }) }
-              window.history.replaceState({ view: 'chat', id: activeId }, '', url)
+              const url = `${base}#/dialog/${encodeURIComponent(activeId)}`
               { const metrics = (() => { try { return localStorage.getItem('tg_metrics') === '1' } catch { return false } })(); if (metrics) console.debug('[notify] hidden/newest incoming → pushTargeted', { dialogId: activeId, msgId: newest.msgId }) }
               await pushTargeted({ title, body, url, tag: `dialog:${activeId}`, dialogId: activeId })
             } else {
               { const metrics = (() => { try { return localStorage.getItem('tg_metrics') === '1' } catch { return false } })(); if (metrics) console.debug('[notify] muted by Telegram — skip push', { dialogId: activeId }) }
             }
           }
-// ...
         } catch {}
         if (newest) lastMsgIdByDialogRef.current.set(activeId, newest.msgId)
         // При входе показываем небольшой хвост из кэша
@@ -835,12 +834,12 @@ function App() {
   const openSettings = () => {
     setView('settings'); setActiveId(null)
     openedFromAppRef.current.settings = true
-    history.pushState({ view: 'settings' }, '', hashUrl('settings'))
+    history.pushState({ view: 'settings' }, '', `${base}#/settings`)
   }
 
   const openAuth = () => {
     setView('auth'); setActiveId(null)
-    history.pushState({ view: 'auth' }, '', hashUrl('auth'))
+    history.pushState({ view: 'auth' }, '', `${base}#/auth`)
   }
 
   const closeSettings = () => {
@@ -852,7 +851,7 @@ function App() {
     // Otherwise, normalize to the list without leaving the site
     setView('chat')
     setActiveId(null)
-    try { history.replaceState({ view: 'list' }, '', hashUrl('')) } catch {}
+    try { history.replaceState({ view: 'list' }, '', `${base}#/`) } catch {}
   }
 
   const onClearCache = async () => {
@@ -1085,7 +1084,7 @@ function App() {
                   } catch {}
                 }
                 setActiveId(id)
-                try { history.pushState({ view: 'chat', id }, '', hashUrl(`dialog/${encodeURIComponent(id)}`)) } catch {}
+                try { history.pushState({ view: 'chat', id }, '', `/#/dialog/${encodeURIComponent(id)}`) } catch {}
               })()
             }}
             onOpenSettings={openSettings}

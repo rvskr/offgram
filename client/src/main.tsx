@@ -6,16 +6,30 @@ import process from 'process/browser'
 import App from './App'
 import { ensurePushSubscription } from './lib/push'
 import { VAPID_PUBLIC_KEY, PUSH_BASE_URL } from './config'
+import { getBase } from './lib/base'
 
 // Ensure Node-like globals for GramJS in browser
 if (!(globalThis as any).global) (globalThis as any).global = globalThis
 if (!(globalThis as any).Buffer) (globalThis as any).Buffer = Buffer
 if (!(globalThis as any).process) (globalThis as any).process = process as any
 
+// Ensure we are under the correct base path (useful on GitHub Pages and preview)
+(() => {
+  try {
+    const base = getBase()
+    if (base !== '/' && !window.location.pathname.startsWith(base)) {
+      // Preserve current hash route
+      const hash = window.location.hash || '#/'
+      window.location.replace(base + hash)
+    }
+  } catch {}
+})()
+
 // Register Service Worker and request Notifications
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).then(async (reg) => {
+    const base = getBase()
+    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).then(async (reg) => {
       // Передадим конфиг в SW (для pushsubscriptionchange)
       const sendCfg = () => {
         try {

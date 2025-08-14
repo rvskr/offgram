@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ensureConnected, isAuthorized, startAuth, getAccounts, getActiveAccountId, switchAccount, removeAccount, addCurrentAccount, type StoredAccount } from '../lib/telegramClient'
+import { ensureConnected, isAuthorized, startAuth, getAccounts, getActiveAccountId, switchAccount, removeAccount, addCurrentAccount, clearSession, type StoredAccount } from '../lib/telegramClient'
 
 export default function Auth({ onDone }: { onDone: () => void }) {
   // Accounts management state
@@ -111,7 +111,11 @@ export default function Auth({ onDone }: { onDone: () => void }) {
                   disabled={activeId === a.id}
                 >Сделать активным</button>
                 <button
-                  onClick={() => { removeAccount(a.id); setAccounts(getAccounts()) }}
+                  onClick={() => { 
+                    removeAccount(a.id); 
+                    if (activeId === a.id) { try { clearSession() } catch {}; window.location.reload(); return }
+                    setAccounts(getAccounts()) 
+                  }}
                   style={{ fontSize: 12, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 4 }}
                 >Удалить</button>
               </div>

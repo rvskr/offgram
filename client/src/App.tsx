@@ -55,6 +55,7 @@ function App() {
   const dialogsCursorRef = useRef<DialogsPageCursor | undefined>(undefined)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [view, setView] = useState<'chat' | 'settings' | 'auth' | null>(null)
+  const openedFromAppRef = useRef({ settings: false })
 
   // Helper: быстрый чек mute из локального состояния/БД с fallback к сети
   const isDialogMuted = useCallback(async (dialogId: string): Promise<boolean> => {
@@ -699,6 +700,7 @@ function App() {
         if (/^#\/settings/.test(hash)) {
           setView('settings')
           history.replaceState({ view: 'settings' }, '', '/#/settings')
+          openedFromAppRef.current.settings = false
         } else {
           const m = hash.match(/#\/dialog\/([^/]+)/)
           if (m) {
@@ -713,8 +715,10 @@ function App() {
     const onPop = (e: PopStateEvent) => {
       const st = e.state as any
       if (st && st.view === 'auth') { setView('auth'); setActiveId(null); return }
-      if (st && st.view === 'settings') { setView('settings'); setActiveId(null); return }
-      if (st && st.view === 'chat' && st.id) { setActiveId(String(st.id)); return }
+      if (st && st.view === 'settings') { setView('settings'); setActiveId(null); openedFromAppRef.current.settings = false; return }
+      if (st && st.view === 'chat' && st.id) { setView('chat'); setActiveId(String(st.id)); return }
+      // Fallback: go to dialogs list
+      setView('chat');
       setActiveId(null)
     }
     window.addEventListener('popstate', onPop)
@@ -826,6 +830,7 @@ function App() {
 
   const openSettings = () => {
     setView('settings'); setActiveId(null)
+    openedFromAppRef.current.settings = true
     history.pushState({ view: 'settings' }, '', '/#/settings')
   }
 
@@ -835,8 +840,15 @@ function App() {
   }
 
   const closeSettings = () => {
-    setView('chat');
-    history.back()
+    // If settings were opened from within the app, go back
+    if (openedFromAppRef.current.settings) {
+      openedFromAppRef.current.settings = false
+      try { history.back(); return } catch {}
+    }
+    // Otherwise, normalize to the list without leaving the site
+    setView('chat')
+    setActiveId(null)
+    try { history.replaceState({ view: 'list' }, '', '/#/') } catch {}
   }
 
   const onClearCache = async () => {
@@ -1069,6 +1081,7 @@ function App() {
                   } catch {}
                 }
                 setActiveId(id)
+                try { history.pushState({ view: 'chat', id }, '', `/#/dialog/${encodeURIComponent(id)}`) } catch {}
               })()
             }}
             onOpenSettings={openSettings}
@@ -1117,7 +1130,7 @@ function App() {
                   className="inline-flex items-center justify-center w-9 h-9 rounded border border-gray-300 hover:bg-gray-50"
                   onClick={() => {
                     setActiveId(null)
-                    try { window.history.replaceState({ view: 'list' }, '') } catch {}
+                    try { window.history.back() } catch {}
                   }}
                   aria-label="Назад к списку"
                 >

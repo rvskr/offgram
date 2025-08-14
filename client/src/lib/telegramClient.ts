@@ -1,6 +1,7 @@
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
-import { Api } from 'telegram';
+import { Api } from 'telegram/tl';
+import { NewMessage, Raw } from 'telegram/events';
 
 const apiId = Number(import.meta.env.VITE_TELEGRAM_API_ID);
 const apiHash = String(import.meta.env.VITE_TELEGRAM_API_HASH);
@@ -1165,7 +1166,7 @@ export async function deleteDialogHistory(entity: any, revoke = false): Promise<
 export async function subscribeNewMessages(handler: (update: any) => void) {
   const c = getClient()
   await ensureConnected()
-  const { NewMessage } = await import('telegram/events')
+  
   // @ts-ignore
   c.addEventHandler(handler as any, new NewMessage({}))
   return () => {
@@ -1178,17 +1179,12 @@ export async function subscribeNewMessages(handler: (update: any) => void) {
 export async function subscribeRaw(handler: (update: any) => void) {
   const c = getClient()
   await ensureConnected()
-  try {
-    const ev = await import('telegram/events') as any
-    if (ev?.Raw) {
-      c.addEventHandler(handler as any, new ev.Raw({}))
-      return () => { try { (c as any).removeEventHandler?.(handler) } catch {} }
-    }
-  } catch {}
-  // fallback generic
   // @ts-ignore
-  c.addEventHandler(handler as any)
-  return () => { try { (c as any).removeEventHandler?.(handler) } catch {} }
+  c.addEventHandler(handler as any, new Raw({}))
+  return () => {
+    // @ts-ignore remove not available; using off-like workaround
+    try { c.removeEventHandler?.(handler) } catch {}
+  }
 }
 
 // (streaming helpers removed; use full-file downloads only)

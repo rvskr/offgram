@@ -7,48 +7,13 @@ export default defineConfig({
   // Base path for GitHub Pages under https://<user>.github.io/offgram/
   base: '/offgram/',
   plugins: [react(), nodePolyfills()],
-  resolve: {
-    alias: {
-      buffer: 'buffer',
-      process: 'process/browser',
-      stream: 'stream-browserify',
-      crypto: 'crypto-browserify',
-      util: 'util',
-      events: 'events',
-      assert: 'assert',
-      path: 'path-browserify',
-      zlib: 'browserify-zlib',
-      'string_decoder': 'string_decoder',
-    },
-  },
+
   define: {
     global: 'globalThis',
     'process.browser': true,
     'process.env': {},
   },
-  optimizeDeps: {
-    include: [
-      'buffer',
-      'process/browser',
-      'stream-browserify',
-      'crypto-browserify',
-      'util',
-      'events',
-      'assert',
-      'path-browserify',
-      'browserify-zlib',
-      'string_decoder',
-      'safe-buffer',
-      'readable-stream',
-      'browserify-sign',
-      'bn.js',
-    ],
-    esbuildOptions: {
-      define: {
-        global: 'globalThis',
-      },
-    },
-  },
+
   build: {
     commonjsOptions: {
       transformMixedEsModules: true,

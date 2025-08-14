@@ -1,11 +1,11 @@
 {
   "name": "TelegramCopy",
   "short_name": "TG Copy",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#229ED9",
   "icons": [
-    { "src": "/tg.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "tg.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

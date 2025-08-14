@@ -211,15 +211,31 @@ export default function DialogsList({ dialogs, hasMore, onLoadMore, activeId, on
     const root = scrollRef.current
     const sentinel = sentinelRef.current
     if (!root || !sentinel) return
+    const tryLoad = async () => {
+      if (loadLockRef.current) return
+      if (!hasMore || !onLoadMore) return
+      loadLockRef.current = true
+      try {
+        await onLoadMore()
+      } finally {
+        loadLockRef.current = false
+      }
+      // Если после загрузки sentinel всё ещё виден — подгружаем дальше без жеста пользователя
+      const r = root.getBoundingClientRect()
+      const s = sentinel.getBoundingClientRect()
+      const intersects = s.top <= r.bottom && s.bottom >= r.top
+      if (intersects && hasMore) {
+        // Дадим layout примениться и продолжаем цепочку
+        setTimeout(() => { void tryLoad() }, 0)
+      }
+    }
     const io = new IntersectionObserver(async (entries) => {
       for (const e of entries) {
         if (e.isIntersecting) {
-          if (loadLockRef.current) return
-          loadLockRef.current = true
-          try { await onLoadMore() } finally { loadLockRef.current = false }
+          void tryLoad()
         }
       }
-    }, { root, rootMargin: '200px', threshold: 0.1 })
+    }, { root, rootMargin: '400px', threshold: 0 })
     io.observe(sentinel)
     return () => io.disconnect()
   }, [hasMore, onLoadMore, search])
@@ -232,8 +248,8 @@ export default function DialogsList({ dialogs, hasMore, onLoadMore, activeId, on
     if (!root) return
     let cancelled = false
     ;(async () => {
-      // максимум 5 итераций за один проход, чтобы не зациклиться
-      for (let i = 0; i < 5; i++) {
+      // максимум 8 итераций за один проход, чтобы не зациклиться
+      for (let i = 0; i < 8; i++) {
         if (cancelled) return
         if (loadLockRef.current) break
         const needMore = root.scrollHeight <= root.clientHeight

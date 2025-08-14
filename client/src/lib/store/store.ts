@@ -40,9 +40,10 @@ export async function getEntityTitle(rawId: any) {
 }
 
 // History wrappers (short TTL ~ 5s) для коалесинга частых вызовов
-// Single-flight and throttle maps
+// Single-flight, throttle и централизованный бэкофф на FloodWait
 const inflight = new Map<string, Promise<any>>()
 const lastPeerCallAt = new Map<string | number, number>()
+let globalFloodUntil = 0
 
 async function withSingleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const existing = inflight.get(key)
@@ -72,13 +73,33 @@ async function withPeerThrottle<T>(peerKey: string | number, minIntervalMs: numb
   }
 }
 
+async function withFloodBackoff<T>(peerKey: string | number, fn: () => Promise<T>): Promise<T> {
+  // Глобальная пауза, если недавно словили FloodWait где-либо
+  const now = Date.now()
+  if (globalFloodUntil > now) {
+    await new Promise(res => setTimeout(res, Math.min(2_000, globalFloodUntil - now)))
+  }
+  try {
+    return await fn()
+  } catch (e: any) {
+    const sec = Number((e && (e.seconds ?? e.duration ?? e.wait ?? undefined)))
+    if (sec && isFinite(sec) && sec > 0) {
+      // Обновляем глобальный бэкофф и добавим небольшой запас
+      globalFloodUntil = Date.now() + (sec * 1000) + 300
+    }
+    throw e
+  }
+}
+
 export async function getHistory(entity: any, limit = 10, offsetId?: number) {
   const peerKey = String(entity?.id ?? entity)
   const key = `store:hist:${peerKey}:${limit}:${offsetId ?? 0}`
   // Short TTL cache to coalesce close repeats
   return withCache(key, 5_000, () =>
     withSingleFlight(key, () =>
-      withPeerThrottle(peerKey, 1_200, () => tgGetHistory(entity, limit, offsetId))
+      withFloodBackoff(peerKey, () =>
+        withPeerThrottle(peerKey, 2_500, () => tgGetHistory(entity, limit, offsetId))
+      )
     )
   )
 }
@@ -88,7 +109,9 @@ export async function getMoreHistory(entity: any, oldestMsgId?: number, pageSize
   const key = `store:hist-more:${peerKey}:${oldestMsgId ?? 0}:${pageSize}`
   return withCache(key, 5_000, () =>
     withSingleFlight(key, () =>
-      withPeerThrottle(peerKey, 1_200, () => tgGetMoreHistory(entity, oldestMsgId, pageSize))
+      withFloodBackoff(peerKey, () =>
+        withPeerThrottle(peerKey, 2_500, () => tgGetMoreHistory(entity, oldestMsgId, pageSize))
+      )
     )
   )
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo, useLayoutEffect } from 'react';
 import type { DBMessage, DBMessageVersion } from '../db/db';
 import { db, msgKey } from '../db/db';
 import MediaModal from './MediaModal';
@@ -91,6 +91,152 @@ function MessageList({
   const currentDialogId = useMemo(() => messages[messages.length - 1]?.dialogId, [messages]);
   const prevDialogIdRef = useRef<string | undefined>(undefined);
   const didInitialScrollRef = useRef<Map<string, boolean>>(new Map());
+
+  // Ранний триггер догрузки по sentinel (верх/низ) + цепочка, пока sentinel остаётся видимым
+  const topLockRef = useRef(false)
+  const botLockRef = useRef(false)
+  // Анкор для сохранения позиции при дозагрузке сверху
+  const topAnchorRef = useRef<{ h: number; s: number; pending: boolean }>({ h: 0, s: 0, pending: false })
+  useEffect(() => {
+    const root = scrollerRef.current
+    const top = topSentinelRef.current
+    const bot = bottomSentinelRef.current
+    if (!root || !top || !bot) return
+    let disposed = false
+
+    const tryLoadTop = async () => {
+      if (disposed || topLockRef.current) return
+      if (!canLoadMoreTop) return
+      topLockRef.current = true
+      setLoadingTop(true)
+      try {
+        // Зафиксируем позицию прокрутки до вставки сверху
+        try {
+          topAnchorRef.current = { h: root.scrollHeight, s: root.scrollTop, pending: true }
+        } catch {}
+        await onLoadMoreTop()
+      } finally {
+        setLoadingTop(false)
+        topLockRef.current = false
+      }
+      // Если после загрузки верх всё ещё виден — продолжаем цепочку
+      // Дождёмся перерисовки, чтобы корректно измерить пересечение
+      await new Promise<void>(rf => requestAnimationFrame(() => requestAnimationFrame(() => rf())))
+      const r = root.getBoundingClientRect()
+      const s = top.getBoundingClientRect()
+      const intersects = s.top <= r.bottom && s.bottom >= r.top
+      if (!disposed && intersects && canLoadMoreTop) {
+        setTimeout(() => { void tryLoadTop() }, 0)
+      }
+    }
+
+    const tryLoadBottom = async () => {
+      if (disposed || botLockRef.current) return
+      if (!canLoadMoreBottom) return
+      botLockRef.current = true
+      setLoadingBottom(true)
+      try {
+        await onLoadMoreBottom()
+      } finally {
+        setLoadingBottom(false)
+        botLockRef.current = false
+      }
+      const r = root.getBoundingClientRect()
+      const s = bot.getBoundingClientRect()
+      const intersects = s.top <= r.bottom && s.bottom >= r.top
+      if (!disposed && intersects && canLoadMoreBottom) {
+        setTimeout(() => { void tryLoadBottom() }, 0)
+      }
+    }
+
+    const ioTop = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) {
+        void tryLoadTop()
+      }
+    }, { root, rootMargin: '800px', threshold: 0 })
+    const ioBot = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) {
+        void tryLoadBottom()
+      }
+    }, { root, rootMargin: '800px', threshold: 0 })
+    ioTop.observe(top)
+    ioBot.observe(bot)
+    return () => { disposed = true; ioTop.disconnect(); ioBot.disconnect() }
+  }, [canLoadMoreTop, canLoadMoreBottom, onLoadMoreTop, onLoadMoreBottom])
+
+  // Если контента меньше высоты контейнера — автодогрузим верх (историю)
+  useEffect(() => {
+    const root = scrollerRef.current
+    if (!root) return
+    if (!canLoadMoreTop) return
+    let cancelled = false
+    ;(async () => {
+      // максимум 8 итераций, чтобы не зациклиться
+      for (let i = 0; i < 8; i++) {
+        if (cancelled) return
+        if (topLockRef.current) break
+        const needMore = root.scrollHeight <= root.clientHeight + 8
+        if (!needMore) break
+        topLockRef.current = true
+        setLoadingTop(true)
+        try { await onLoadMoreTop() } catch {} finally { setLoadingTop(false); topLockRef.current = false }
+        await new Promise(r => setTimeout(r, 0))
+        if (!canLoadMoreTop) break
+      }
+    })()
+    return () => { cancelled = true }
+  }, [messages.length, canLoadMoreTop, onLoadMoreTop])
+
+  // Fallback: ручной триггер по прокрутке, если IntersectionObserver не срабатывает
+  useEffect(() => {
+    const root = scrollerRef.current
+    if (!root) return
+    let ticking = false
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        ticking = false
+        const nearTop = () => root.scrollTop <= 800
+        if (nearTop() && canLoadMoreTop && !topLockRef.current) {
+          ;(async () => {
+            // До 3 итераций за один тик скролла
+            for (let i = 0; i < 3; i++) {
+              if (!canLoadMoreTop || !nearTop() || topLockRef.current) break
+              topLockRef.current = true
+              setLoadingTop(true)
+              try {
+                try { topAnchorRef.current = { h: root.scrollHeight, s: root.scrollTop, pending: true } } catch {}
+                await onLoadMoreTop()
+              } finally {
+                setLoadingTop(false)
+                topLockRef.current = false
+              }
+              // дождёмся перерисовки, пересчитаем nearTop
+              await new Promise<void>(rf => requestAnimationFrame(() => requestAnimationFrame(() => rf())))
+            }
+          })()
+        }
+      })
+    }
+    root.addEventListener('scroll', onScroll, { passive: true })
+    return () => root.removeEventListener('scroll', onScroll)
+  }, [canLoadMoreTop, onLoadMoreTop])
+
+  // Коррекция позиции после дозагрузки сверху
+  useLayoutEffect(() => {
+    const root = scrollerRef.current
+    const a = topAnchorRef.current
+    if (!root || !a.pending) return
+    try {
+      const dh = root.scrollHeight - a.h
+      if (dh !== 0) {
+        root.scrollTop = a.s + dh
+      }
+    } finally {
+      a.pending = false
+    }
+  }, [messages.length])
 
   // ObjectURL cache management
   const getMsgBlobUrl = (m: DBMessage, kind: 'full' | 'thumb'): string | undefined => {

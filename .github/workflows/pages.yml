@@ -37,6 +37,8 @@ jobs:
         run: npm run build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          VITE_TELEGRAM_API_ID: ${{ secrets.VITE_TELEGRAM_API_ID }}
+          VITE_TELEGRAM_API_HASH: ${{ secrets.VITE_TELEGRAM_API_HASH }}
 
       - name: Add SPA fallback (404.html)
         run: cp dist/index.html dist/404.html

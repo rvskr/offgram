@@ -31,9 +31,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # При необходимости укажите секреты окружения для сборки фронтенда
-          # VITE_TELEGRAM_API_ID: ${{ secrets.VITE_TELEGRAM_API_ID }}
-          # VITE_TELEGRAM_API_HASH: ${{ secrets.VITE_TELEGRAM_API_HASH }}
+          VITE_TELEGRAM_API_ID: ${{ secrets.VITE_TELEGRAM_API_ID }}
+          VITE_TELEGRAM_API_HASH: ${{ secrets.VITE_TELEGRAM_API_HASH }}
           NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Upload build artifact

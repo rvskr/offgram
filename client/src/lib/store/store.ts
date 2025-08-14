@@ -73,7 +73,7 @@ async function withPeerThrottle<T>(peerKey: string | number, minIntervalMs: numb
   }
 }
 
-async function withFloodBackoff<T>(peerKey: string | number, fn: () => Promise<T>): Promise<T> {
+async function withFloodBackoff<T>(_peerKey: string | number, fn: () => Promise<T>): Promise<T> {
   // Глобальная пауза, если недавно словили FloodWait где-либо
   const now = Date.now()
   if (globalFloodUntil > now) {
